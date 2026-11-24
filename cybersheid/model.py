@@ -18,12 +18,25 @@ def model_path() -> Path:
     return Path(os.getenv("CYBERSHEID_MODEL_PATH", "models/random_forest.joblib"))
 
 
+def save_uploaded_model(upload) -> tuple[object, str]:
+    path = model_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(upload.getvalue())
+    model = joblib.load(path)
+    if not hasattr(model, "predict"):
+        raise ValueError("The uploaded file is not a compatible scikit-learn prediction artifact.")
+    return model, str(path)
+
+
 def load_model():
     path = model_path()
     if not path.is_file():
         return None, f"No saved model found at {path}."
     try:
-        return joblib.load(path), f"Loaded saved model: {path}"
+        model = joblib.load(path)
+        if not hasattr(model, "predict"):
+            return None, f"{path} does not contain a prediction artifact."
+        return model, f"Loaded saved model: {path}"
     except Exception as exc:
         return None, f"Could not load model ({type(exc).__name__}): {exc}"
 
@@ -33,10 +46,10 @@ def feature_names(model=None) -> list[str]:
         pipeline_feature_names = getattr(model, "feature_names_in_", None)
         if pipeline_feature_names is not None:
             return [str(x) for x in pipeline_feature_names]
-        # Inspect a pipeline's preprocessing/feature names when possible.
         try:
+            named_steps = getattr(model, "named_steps", {})
             for step_name in ("preprocessor", "features", "columntransformer"):
-                step = getattr(model, "named_steps", {}).get(step_name)
+                step = named_steps.get(step_name)
                 names = getattr(step, "feature_names_in_", None)
                 if names is not None:
                     return [str(x) for x in names]
@@ -53,13 +66,19 @@ def predict(model, values: dict) -> dict:
     missing = [name for name in names if name not in values]
     if missing:
         raise ValueError("Missing model fields: " + ", ".join(missing))
+
     row = pd.DataFrame([[values[name] for name in names]], columns=names)
     prediction = model.predict(row)[0]
     confidence = None
     if hasattr(model, "predict_proba"):
         probabilities = np.asarray(model.predict_proba(row))[0]
         confidence = float(np.max(probabilities))
+
     label = str(prediction)
     normal = label.strip().lower() in {"0", "normal", "benign", "false", "normal traffic"}
-    category = "Normal Traffic" if normal else label
-    return {"label": label, "category": category, "confidence": confidence, "normal": normal}
+    return {
+        "label": label,
+        "category": "Normal Traffic" if normal else label,
+        "confidence": confidence,
+        "normal": normal,
+    }

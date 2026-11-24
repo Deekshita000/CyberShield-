@@ -37,6 +37,8 @@ Set `CYBERSHEID_DATASET` to a custom dataset path if needed.
 
 ## Saved Random Forest model
 
-Place an existing trained scikit-learn-compatible artifact at `models/random_forest.joblib`, or set `CYBERSHEID_MODEL_PATH`. The app does not retrain the model. If the saved artifact is a Pipeline with preprocessing and categorical encoders, provide the full Pipeline artifact. The app currently does not fabricate a model if no artifact exists.
+Place an existing trained scikit-learn-compatible artifact at `models/random_forest.joblib`, or upload it in Settings. You can also set `CYBERSHEID_MODEL_PATH`. The app does not retrain the model.
+
+For categorical fields, upload the complete preprocessing pipeline (for example a `Pipeline` containing encoders plus `RandomForestClassifier`). A plain numeric Random Forest should expose `feature_names_in_` or be configured with `CYBERSHEID_FEATURES`.
 
 No held-out evaluation metrics are claimed without actual test data and supplied model predictions.

@@ -11,7 +11,7 @@ from cybersheid.data import (SEVERITIES, demo_series, get_detections, save_detec
                              update_status)
 from cybersheid.dataset import (DATASET_PATH, NUMERIC_FEATURES, dataset_distribution,
                                 load_dataset, save_uploaded_dataset, dataset_status)
-from cybersheid.model import feature_names, load_model, predict
+from cybersheid.model import feature_names, load_model, predict, save_uploaded_model
 
 NAV = ["Dashboard", "Threat Analysis", "New Detection", "Reports", "Settings"]
 COLORS = {"Critical": "#f04459", "High": "#ff9b37", "Medium": "#f4c542", "Low": "#22b8d4"}
@@ -242,8 +242,18 @@ def settings():
     st.markdown('<div class="card"><div class="section-title">Application & Model Information</div>',unsafe_allow_html=True)
     model,message=load_model()
     st.write("**Application:** CYBERSHEID · Dataset-aware Streamlit security console")
-    st.write(f"**Dataset:** {dataset_status()} · `{DATASET_PATH}`")
+    st.write(f"**Dataset:** {dataset_status()}")
     st.write(f"**Saved model:** {'Connected' if model is not None else 'Not connected'} · {message}")
+
+    model_upload = st.file_uploader("Upload existing Random Forest model", type=["joblib", "pkl", "pickle"], key="model_upload")
+    if model_upload:
+        try:
+            loaded, saved_path = save_uploaded_model(model_upload)
+            st.success(f"Model uploaded and validated: {saved_path}")
+            st.caption(f"Feature fields detected: {', '.join(feature_names(loaded))}")
+        except Exception as exc:
+            st.error(f"Model upload failed: {exc}")
+
     st.caption("The app analyzes the 13 dataset fields entered manually or supplied by a trained model-ready pipeline. It does not monitor live traffic, capture packets or block attacks.")
     st.markdown('</div>',unsafe_allow_html=True)
 
