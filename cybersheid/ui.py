@@ -139,13 +139,11 @@ def new_detection():
     if model is None: st.warning(f"Model unavailable — {message}")
     else: st.success(message)
     dataset=load_dataset()
+    protocols=["TCP","UDP","ICMP"]
     if dataset is not None:
         protocols=sorted(dataset.protocol.dropna().astype(str).unique())
-        source_examples=sorted(dataset.src_ip.dropna().astype(str).unique())[:300]
-    else:
-        protocols=["TCP","UDP","ICMP"]; source_examples=[]
     names=feature_names(model)
-    st.caption("Fields use the same names as threat_detection_reduced.csv. Put IP values as text and protocol as a category.")
+    st.caption("Fields use the same names as threat_detection_52000.csv. Text and protocol values are preserved for categorical pipelines.")
     with st.form("detection_form"):
         c1,c2,c3=st.columns(3)
         with c1:
@@ -189,7 +187,7 @@ def new_detection():
 def reports():
     heading("Model Evaluation & Security Reports", "Real dataset analytics and downloadable detection history.")
     dataset=load_dataset()
-    upload=st.file_uploader("Upload threat_detection_reduced.csv",type=["csv"])
+    upload=st.file_uploader("Upload threat_detection_52000.csv",type=["csv"])
     if upload:
         try:
             dataset,path=save_uploaded_dataset(upload); st.success(f"Dataset uploaded and validated: {path} · {len(dataset):,} records")
@@ -201,15 +199,15 @@ def reports():
         c1,c2,c3,c4=st.columns(4)
         with c1: metric("Dataset Records",f"{len(dataset):,}","▦","#4aa7ff")
         with c2: metric("Threat Classes",dataset.label.nunique(),"◆","#ffb43c")
-        with c3: metric("Normal Records",int(dataset.label.str.lower().eq("normal").sum()),"✓","#28d3a1")
-        with c4: metric("Attack Records",int(dataset.label.str.lower().ne("normal").sum()),"!","#f04459")
+        with c3: metric("Normal Records",int(dataset.label.astype(str).str.lower().eq("normal").sum()),"✓","#28d3a1")
+        with c4: metric("Attack Records",int(dataset.label.astype(str).str.lower().ne("normal").sum()),"!","#f04459")
         left,right=st.columns([1.1,1])
         with left:
             st.markdown('<div class="card"><div class="section-title">Threat Distribution</div>',unsafe_allow_html=True)
             fig=px.bar(dist.head(12),x="Records",y="Threat Category",orientation="h",color="Records",color_continuous_scale=["#0e5aa3","#35a4ff"])
             fig.update_layout(coloraxis_showscale=False); st.plotly_chart(chart_theme(fig,330),use_container_width=True,config={"displayModeBar":False}); st.markdown('</div>',unsafe_allow_html=True)
         with right:
-            st.markdown('<div class="card"><div class="section-title">Dataset Class Share</div>',unsafe_equal=True) if False else st.markdown('<div class="card"><div class="section-title">Dataset Class Share</div>',unsafe_allow_html=True)
+            st.markdown('<div class="card"><div class="section-title">Dataset Class Share</div>',unsafe_allow_html=True)
             fig=px.pie(dist.head(12),values="Records",names="Threat Category",hole=.58); st.plotly_chart(chart_theme(fig,330),use_container_width=True,config={"displayModeBar":False}); st.markdown('</div>',unsafe_allow_html=True)
         with st.expander("Preview dataset",expanded=False): st.dataframe(dataset.head(100),hide_index=True,use_container_width=True,height=280)
     st.markdown('<div class="card"><div class="section-title">Model Evaluation Status</div>',unsafe_allow_html=True)

@@ -6,7 +6,7 @@ import os
 
 import pandas as pd
 
-DATASET_PATH = Path(os.getenv("CYBERSHEID_DATASET", "data/threat_detection_reduced.csv"))
+DATASET_PATH = Path(os.getenv("CYBERSHEID_DATASET", "threat_detection_52000.csv"))
 MODEL_FEATURES = [
     "src_ip", "dst_ip", "protocol", "src_port", "dst_port", "packet_count",
     "bytes_sent", "duration_sec", "failed_connections", "login_attempts",
@@ -20,12 +20,12 @@ NUMERIC_FEATURES = [
 
 
 def save_uploaded_dataset(upload) -> tuple[pd.DataFrame, str]:
-    DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
-    bytes_data = upload.getvalue()
-    DATASET_PATH.write_bytes(bytes_data)
-    df = pd.read_csv(DATASET_PATH)
+    target = DATASET_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(upload.getvalue())
+    df = pd.read_csv(target)
     validate_dataset(df)
-    return df, str(DATASET_PATH)
+    return df, str(target)
 
 
 def validate_dataset(df: pd.DataFrame) -> list[str]:
@@ -33,14 +33,32 @@ def validate_dataset(df: pd.DataFrame) -> list[str]:
     missing = sorted(required - set(df.columns))
     if missing:
         raise ValueError("Dataset is missing required columns: " + ", ".join(missing))
+    if df.empty:
+        raise ValueError("Dataset contains no records.")
     return sorted(set(df.columns) - required)
 
 
+def find_dataset_path() -> Path:
+    candidates = [
+        DATASET_PATH,
+        Path("data") / DATASET_PATH.name,
+        Path("threat_detection_52000.csv"),
+        Path("threat_detection_reduced.csv"),
+        Path("data") / "threat_detection_52000.csv",
+        Path("data") / "threat_detection_reduced.csv",
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return DATASET_PATH
+
+
 def load_dataset() -> pd.DataFrame | None:
-    if not DATASET_PATH.is_file():
+    path = find_dataset_path()
+    if not path.is_file():
         return None
     try:
-        df = pd.read_csv(DATASET_PATH)
+        df = pd.read_csv(path)
         validate_dataset(df)
         return df
     except Exception:
@@ -50,8 +68,9 @@ def load_dataset() -> pd.DataFrame | None:
 def dataset_status() -> str:
     df = load_dataset()
     if df is None:
-        return "No dataset uploaded"
-    return f"{len(df):,} rows · {df['label'].nunique()} threat classes"
+        return "No valid dataset found"
+    path = find_dataset_path()
+    return f"{len(df):,} rows · {df['label'].nunique()} threat classes · {path.name}"
 
 
 def dataset_distribution(df: pd.DataFrame) -> pd.DataFrame:
